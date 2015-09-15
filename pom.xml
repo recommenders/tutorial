@@ -34,17 +34,17 @@
         <dependency>
             <groupId>net.recommenders.rival</groupId>
             <artifactId>rival-core</artifactId>
-            <version>0.2</version>
+            <version>0.3-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>net.recommenders.rival</groupId>
             <artifactId>rival-examples</artifactId>
-            <version>0.2</version>
+            <version>0.3-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>net.recommenders.rival</groupId>
             <artifactId>rival-recommend</artifactId>
-            <version>0.2</version>
+            <version>0.3-SNAPSHOT</version>
         </dependency>
 
     </dependencies>

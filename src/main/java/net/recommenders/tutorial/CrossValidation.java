@@ -10,12 +10,11 @@ import net.recommenders.rival.evaluation.metric.ranking.Precision;
 import net.recommenders.rival.evaluation.strategy.EvaluationStrategy;
 import net.recommenders.rival.examples.DataDownloader;
 import net.recommenders.rival.recommend.frameworks.RecommenderIO;
+import net.recommenders.rival.recommend.frameworks.exceptions.RecommenderException;
 import net.recommenders.rival.recommend.frameworks.mahout.GenericRecommenderBuilder;
-import net.recommenders.rival.recommend.frameworks.mahout.exceptions.RecommenderException;
 import net.recommenders.rival.split.parser.MovielensParser;
 import net.recommenders.rival.split.splitter.CrossValidationSplitter;
 import org.apache.commons.cli.*;
-
 import org.apache.mahout.cf.taste.common.TasteException;
 import org.apache.mahout.cf.taste.impl.common.LongPrimitiveIterator;
 import org.apache.mahout.cf.taste.impl.model.file.FileDataModel;
@@ -43,7 +42,7 @@ public final class CrossValidation {
   /**
    * Default neighbohood size.
    */
-  public static final int NEIGH_SIZE = 50;
+  public static int NEIGH_SIZE = 50;
   /**
    * Default cutoff for evaluation metrics.
    */
@@ -72,7 +71,7 @@ public final class CrossValidation {
    *
    * @param args the arguments (not used)
    */
-  public static void main(final String[] args) throws FileNotFoundException, UnsupportedEncodingException, ClassNotFoundException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, ParseException {
+  public static void main(final String[] args) throws FileNotFoundException, UnsupportedEncodingException, ClassNotFoundException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, ParseException, RecommenderException {
 
 
     parseCLI(args);
@@ -84,26 +83,31 @@ public final class CrossValidation {
     String recPath = "data/ml-100k/recommendations/";
     String dataFile = "data/ml-100k/u.data";
 
+    if(!new File(dataFile).exists()) {
+      DataDownloader dd = new DataDownloader(url, folder);
+      dd.downloadAndUnzip();
+    }
     prepareSplits(url, N_FOLDS, dataFile, folder, modelPath);
     recommend(N_FOLDS, modelPath, recPath);
-    // the strategy files are (currently) being ignored
     prepareStrategy(N_FOLDS, modelPath, recPath, modelPath);
     evaluate(N_FOLDS, modelPath, recPath);
   }
 
+  /**
+   * Parses the command line arguments
+   * @param args the arguments
+   * @throws ParseException if parsing breaks
+   */
   private static void parseCLI(String[] args) throws ParseException {
     Options options = new Options();
-
-
     options.addOption("t", true, "threshold");
     options.addOption("u", true, "per user");
-
+    options.addOption("n", true, "neighborhood size");
     CommandLineParser parser = new DefaultParser();
     CommandLine cmd = parser.parse(options, args);
-
     REL_TH = (null != cmd.getOptionValue("t") ? Double.parseDouble(cmd.getOptionValue("t")) : REL_TH);
-
     PER_USER = (null != cmd.getOptionValue("u") ? Boolean.parseBoolean(cmd.getOptionValue("u")) : PER_USER);
+    NEIGH_SIZE = (null != cmd.getOptionValue("u") ? Integer.parseInt(cmd.getOptionValue("n")) : NEIGH_SIZE);
   }
 
 
@@ -117,8 +121,6 @@ public final class CrossValidation {
    * @param outPath path where the splits will be stored
    */
   public static void prepareSplits(final String url, final int nFolds, final String inFile, final String folder, final String outPath) throws FileNotFoundException, UnsupportedEncodingException {
-    DataDownloader dd = new DataDownloader(url, folder);
-    dd.downloadAndUnzip();
 
     boolean perUser = PER_USER;
     long seed = SEED;
@@ -159,7 +161,7 @@ public final class CrossValidation {
    * @param inPath path where training and test models have been stored
    * @param outPath path where recommendation files will be stored
    */
-  public static void recommend(final int nFolds, final String inPath, final String outPath) {
+  public static void recommend(final int nFolds, final String inPath, final String outPath) throws RecommenderException {
     for (int i = 0; i < nFolds; i++) {
       org.apache.mahout.cf.taste.model.DataModel trainModel;
       org.apache.mahout.cf.taste.model.DataModel testModel;
@@ -180,8 +182,6 @@ public final class CrossValidation {
         recommender = grb.buildRecommender(trainModel, recommenderClass, similarityClass, neighborhoodSize);
       } catch (RecommenderException e) {
         e.printStackTrace();
-      } catch (TasteException e) {
-        e.printStackTrace();
       }
 
       String fileName = "recs_" + i + ".csv";
@@ -194,7 +194,7 @@ public final class CrossValidation {
           long u = users.nextLong();
           assert recommender != null;
           List<RecommendedItem> items = recommender.recommend(u, trainModel.getNumItems());
-          RecommenderIO.writeData(u, items, outPath, fileName, !createFile);
+          RecommenderIO.writeData(u, items, outPath, fileName, !createFile, null);
           createFile = false;
         }
       } catch (TasteException e) {
