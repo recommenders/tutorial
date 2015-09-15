@@ -1,17 +1,10 @@
 package net.recommenders.tutorial;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.lang.reflect.InvocationTargetException;
-import java.util.List;
-
-
 import net.recommenders.rival.core.DataModel;
 import net.recommenders.rival.core.DataModelUtils;
 import net.recommenders.rival.core.Parser;
 import net.recommenders.rival.core.SimpleParser;
+import net.recommenders.rival.evaluation.metric.error.RMSE;
 import net.recommenders.rival.evaluation.metric.ranking.NDCG;
 import net.recommenders.rival.evaluation.metric.ranking.Precision;
 import net.recommenders.rival.evaluation.strategy.EvaluationStrategy;
@@ -21,6 +14,8 @@ import net.recommenders.rival.recommend.frameworks.mahout.GenericRecommenderBuil
 import net.recommenders.rival.recommend.frameworks.mahout.exceptions.RecommenderException;
 import net.recommenders.rival.split.parser.MovielensParser;
 import net.recommenders.rival.split.splitter.CrossValidationSplitter;
+import org.apache.commons.cli.*;
+
 import org.apache.mahout.cf.taste.common.TasteException;
 import org.apache.mahout.cf.taste.impl.common.LongPrimitiveIterator;
 import org.apache.mahout.cf.taste.impl.model.file.FileDataModel;
@@ -33,7 +28,6 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
-import net.recommenders.rival.evaluation.metric.error.RMSE;
 
 /**
  * RiVal Movielens100k Mahout Example, using 5-fold cross validation.
@@ -57,7 +51,11 @@ public final class CrossValidation {
   /**
    * Default relevance threshold.
    */
-  public static final double REL_TH = 3.0;
+  public static double REL_TH = 3.0;
+  /**
+   * Default per user setting
+   */
+  public static boolean PER_USER = true;
   /**
    * Default seed.
    */
@@ -74,22 +72,40 @@ public final class CrossValidation {
    *
    * @param args the arguments (not used)
    */
-  public static void main(final String[] args) throws FileNotFoundException, UnsupportedEncodingException, ClassNotFoundException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
-    for(String arg : args)
-    
-      System.out.println(arg);
+  public static void main(final String[] args) throws FileNotFoundException, UnsupportedEncodingException, ClassNotFoundException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, ParseException {
+
+
+    parseCLI(args);
+
+
     String url = "http://files.grouplens.org/datasets/movielens/ml-100k.zip";
     String folder = "data/ml-100k";
     String modelPath = "data/ml-100k/model/";
     String recPath = "data/ml-100k/recommendations/";
     String dataFile = "data/ml-100k/u.data";
-    int nFolds = N_FOLDS;
-    prepareSplits(url, nFolds, dataFile, folder, modelPath);
-    recommend(nFolds, modelPath, recPath);
+
+    prepareSplits(url, N_FOLDS, dataFile, folder, modelPath);
+    recommend(N_FOLDS, modelPath, recPath);
     // the strategy files are (currently) being ignored
-    prepareStrategy(nFolds, modelPath, recPath, modelPath);
-    evaluate(nFolds, modelPath, recPath);
+    prepareStrategy(N_FOLDS, modelPath, recPath, modelPath);
+    evaluate(N_FOLDS, modelPath, recPath);
   }
+
+  private static void parseCLI(String[] args) throws ParseException {
+    Options options = new Options();
+
+
+    options.addOption("t", true, "threshold");
+    options.addOption("u", true, "per user");
+
+    CommandLineParser parser = new DefaultParser();
+    CommandLine cmd = parser.parse(options, args);
+
+    REL_TH = (null != cmd.getOptionValue("t") ? Double.parseDouble(cmd.getOptionValue("t")) : REL_TH);
+
+    PER_USER = (null != cmd.getOptionValue("u") ? Boolean.parseBoolean(cmd.getOptionValue("u")) : PER_USER);
+  }
+
 
   /**
    * Downloads a dataset and stores the splits generated from it.
@@ -104,7 +120,7 @@ public final class CrossValidation {
     DataDownloader dd = new DataDownloader(url, folder);
     dd.downloadAndUnzip();
 
-    boolean perUser = true;
+    boolean perUser = PER_USER;
     long seed = SEED;
     Parser parser = new MovielensParser();
 
